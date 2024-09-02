@@ -1,0 +1,9 @@
+# Logging configuration
+
+menu "Zephyr"
+source "Kconfig.zephyr"
+endmenu
+
+module = EXALT
+module-str = ExaltApp
+source "subsys/logging/Kconfig.template.log_config"
