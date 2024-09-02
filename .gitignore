@@ -1,0 +1,27 @@
+# Ignore build directory
+/build*/
+
+# Ignore generated files
+/generated_dts_board.conf
+/generated.cmake
+
+# Ignore SDK directories
+/bootloader/
+/modules/
+/nrf/
+/nrfxlib/
+/test/
+/tools/
+/zephyr/
+
+# Ignore west configuration
+/.west/
+
+# Ignore editor and OS specific files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Add any other files
+exalt/build
