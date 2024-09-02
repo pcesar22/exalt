@@ -25,3 +25,5 @@
 
 # Add any other files
 exalt/build
+
+cmake/local.cmake
