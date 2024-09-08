@@ -11,4 +11,5 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(exalt)
 
-target_sources(app PRIVATE src/main.cpp)
+# target_sources(app PRIVATE src/main.cpp)
+target_sources(app PRIVATE src/main.c)
