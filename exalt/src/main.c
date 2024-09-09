@@ -1,41 +1,42 @@
-/*
- * Copyright (c) 2016 Intel Corporation
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
+/******************************************************************************
+ * Includes
+ *****************************************************************************/
 #include <stdio.h>
 #include <zephyr/kernel.h>
-#include <zephyr/kernel.h>
-
 #include <zephyr/drivers/gpio.h>
-
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/gap.h>
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/bluetooth/conn.h>
-
 #include <zephyr/random/random.h>
-
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(EXALT, CONFIG_EXALT_LOG_LEVEL);
+#include <bluetooth/services/nus.h>
 
-/* 1000 msec = 1 sec */
+/******************************************************************************
+ * Definitions
+ *****************************************************************************/
 #define SLEEP_TIME_MS 1000
-
-/* The devicetree node identifier for the "led0" alias. */
 #define LED0_NODE DT_ALIAS(led0)
 
 #define IMU_CHAR_UUID BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0x87654321, 0x1234, 0x5678, 0x1234, 0x56789abcdef0))
 
+/******************************************************************************
+ * Log Module Registration
+ *****************************************************************************/
+LOG_MODULE_REGISTER(EXALT, CONFIG_EXALT_LOG_LEVEL);
+
+/******************************************************************************
+ * Static Variables
+ *****************************************************************************/
+static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+static struct k_timer led_timer;
+static struct bt_conn *current_conn;
+
 static const struct bt_uuid_128 imu_service_uuid =
 	BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0));
 
-/**
- * Define Bluetooth Advertising data
- */
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
 	BT_DATA_BYTES(BT_DATA_UUID128_ALL,
@@ -43,15 +44,42 @@ static const struct bt_data ad[] = {
 				  0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12),
 };
 
-static struct bt_conn *current_conn;
+/******************************************************************************
+ * Function Prototypes
+ *****************************************************************************/
+static void connected(struct bt_conn *conn, uint8_t err);
+static void disconnected(struct bt_conn *conn, uint8_t reason);
+static ssize_t read_imu_data(struct bt_conn *conn,
+							 const struct bt_gatt_attr *attr,
+							 void *buf, uint16_t len, uint16_t offset);
+static void imu_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value);
+static void bt_ready(int err);
+static void bluetooth_testing(void);
+static void led_timer_handler(struct k_timer *timer);
 
-/*
- * A build error on this line means your board is unsupported.
- * See the sample documentation for information on how to fix this.
- */
-static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
-static struct k_timer led_timer;
+/******************************************************************************
+ * Bluetooth Callbacks
+ *****************************************************************************/
+static struct bt_conn_cb conn_callbacks = {
+	.connected = connected,
+	.disconnected = disconnected,
+};
 
+/******************************************************************************
+ * GATT Service Definition
+ *****************************************************************************/
+BT_GATT_SERVICE_DEFINE(
+	imu_svc,
+	BT_GATT_PRIMARY_SERVICE(&imu_service_uuid),
+	BT_GATT_CHARACTERISTIC(IMU_CHAR_UUID,
+						   BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
+						   BT_GATT_PERM_READ,
+						   read_imu_data, NULL, NULL),
+	BT_GATT_CCC(imu_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE));
+
+/******************************************************************************
+ * Function Implementations
+ *****************************************************************************/
 static void connected(struct bt_conn *conn, uint8_t err)
 {
 	if (err)
@@ -96,23 +124,6 @@ static void imu_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
 	bool notif_enabled = (value == BT_GATT_CCC_NOTIFY);
 	LOG_INF("Notifications %s", notif_enabled ? "enabled" : "disabled");
 }
-
-static struct bt_conn_cb conn_callbacks = {
-	.connected = connected,
-	.disconnected = disconnected,
-};
-
-/**
- * Define GATT service and characteristic
- */
-BT_GATT_SERVICE_DEFINE(
-	imu_svc,
-	BT_GATT_PRIMARY_SERVICE(&imu_service_uuid),
-	BT_GATT_CHARACTERISTIC(IMU_CHAR_UUID,
-						   BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
-						   BT_GATT_PERM_READ,
-						   read_imu_data, NULL, NULL),
-	BT_GATT_CCC(imu_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE));
 
 static void bt_ready(int err)
 {
@@ -165,6 +176,9 @@ static void led_timer_handler(struct k_timer *timer)
 	gpio_pin_toggle_dt(&led);
 }
 
+/******************************************************************************
+ * Main Function
+ *****************************************************************************/
 int main(void)
 {
 	LOG_INF("Hello Exalted!");
@@ -173,7 +187,7 @@ int main(void)
 	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
 	if (ret < 0)
 	{
-		LOG_ERR("Error %d: failed to confifugre LED Pin", ret);
+		LOG_ERR("Error %d: failed to configure LED Pin", ret);
 		return 0;
 	}
 
