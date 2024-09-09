@@ -12,7 +12,7 @@
 /nrfxlib/
 /test/
 /tools/
-/zephyr/
+# /zephyr/
 
 # Ignore west configuration
 /.west/
