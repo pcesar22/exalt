@@ -1,4 +1,49 @@
-# Logging configuration
+# Main application configuration options
+
+# Application-specific configurations
+menu "Application Services"
+
+config EXALT_BLINK_SERVICE
+    bool "Enable LED blinking service"
+    default y
+    depends on GPIO
+    help
+      Enable the LED blinking service.
+
+if EXALT_BLINK_SERVICE
+
+config EXALT_BLINK_THREAD_STACK_SIZE
+    int "Blink service thread stack size"
+    default 1024
+    help
+      Stack size for the blink service thread.
+
+config EXALT_BLINK_THREAD_PRIORITY
+    int "Blink service thread priority"
+    default 5
+    help
+      Priority for the blink service thread.
+
+endif # EXALT_BLINK_SERVICE
+
+config EXALT_BLE_SERVICE
+    bool "Enable Bluetooth service"
+    default y
+    depends on BT
+    help
+      Enable the Bluetooth service for controlling LED patterns.
+
+if EXALT_BLE_SERVICE
+
+config EXALT_BLE_DEVICE_NAME
+    string "Bluetooth device name"
+    default "Exalt"
+    help
+      Bluetooth device name used in advertisements.
+
+endif # EXALT_BLE_SERVICE
+
+endmenu
 
 menu "Zephyr"
 source "Kconfig.zephyr"
